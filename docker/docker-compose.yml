@@ -1,0 +1,27 @@
+services:
+  test:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    working_dir: /workspace
+    command: ["pytest", "tests/", "-v", "--tb=short"]
+
+  test-gpu:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    working_dir: /workspace
+    command: ["pytest", "tests/", "-v", "--tb=short"]
+    gpus: all
+    profiles: ["gpu"]
+
+  dev:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    working_dir: /workspace
+    command: ["bash"]
+    tty: true
+    stdin_open: true
+    volumes:
+      - ..:/workspace
