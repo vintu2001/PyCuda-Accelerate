@@ -1,0 +1,74 @@
+name: Publish Wheels
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  build-wheels:
+    runs-on: self-hosted-gpu-linux
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.9", "3.10", "3.11", "3.12"]
+        cuda-version: ["11.8", "12.2"]
+
+    container:
+      image: nvidia/cuda:${{ matrix.cuda-version }}.0-devel-ubuntu22.04
+      options: --gpus all
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install build dependencies
+        run: |
+          apt-get update
+          apt-get install -y cmake ninja-build g++ patchelf
+          python -m pip install --upgrade pip
+          pip install build auditwheel
+
+      - name: Set CUDA wheel suffix
+        run: |
+          if [ "${{ matrix.cuda-version }}" = "11.8" ]; then
+            echo "CUDA_SUFFIX=cu118" >> $GITHUB_ENV
+          else
+            echo "CUDA_SUFFIX=cu122" >> $GITHUB_ENV
+          fi
+
+      - name: Build wheel
+        run: |
+          sed -i "s/^name = \"pycuda-accelerate\"$/name = \"pycuda-accelerate-${CUDA_SUFFIX}\"/" pyproject.toml
+          python -m build --wheel
+
+      - name: Repair wheel
+        run: auditwheel repair dist/*.whl --plat manylinux_2_17_x86_64 -w wheelhouse/
+
+      - name: Upload wheel artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: wheel-py${{ matrix.python-version }}-${{ env.CUDA_SUFFIX }}
+          path: wheelhouse/*.whl
+
+  publish:
+    needs: build-wheels
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+
+    steps:
+      - name: Download wheel artifacts
+        uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+          path: dist/
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1

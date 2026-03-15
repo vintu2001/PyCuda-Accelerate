@@ -1,0 +1,36 @@
+package:
+  name: pycuda-accelerate
+  version: "0.1.0"
+
+source:
+  path: ..
+
+build:
+  number: 0
+  script: pip install . -v --no-deps --no-build-isolation
+
+requirements:
+  build:
+    - {{ compiler('c') }}
+    - {{ compiler('cxx') }}
+    - cmake >=3.24
+    - ninja
+  host:
+    - python
+    - pip
+    - numpy >=1.24
+    - scikit-build-core >=0.8
+    - pybind11 >=2.12
+    - cuda-toolkit 12.2.*
+  run:
+    - python
+    - numpy >=1.24
+    - cuda-runtime 12.2.*
+
+test:
+  imports:
+    - pycuda_accelerate
+  requires:
+    - pytest
+  commands:
+    - python -c "import pycuda_accelerate; print(pycuda_accelerate.__version__)"
